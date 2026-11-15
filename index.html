@@ -2,392 +2,539 @@
 <html lang="zh-Hant">
 <head>
   <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0">
-  <title>名片儲存模組示範</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>名片掃</title>
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Noto+Sans+TC:wght@400;600;700&display=swap">
   <style>
+    :root {
+      --bg: #f3efe6;
+      --surface: #fffdf8;
+      --ink: #1c1917;
+      --muted: #78716c;
+      --line: #e6e0d4;
+      --primary: #0f5c56;
+      --primary-fg: #f4fffc;
+      --soft: #e7f3f1;
+      --danger: #9f2d2d;
+      --warn-bg: #fff6e8;
+      --warn: #92400e;
+    }
     * { box-sizing: border-box; }
     body {
-      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
       margin: 0;
-      padding: 16px;
-      background: #f5f5f7;
-      color: #1d1d1f;
-      font-size: 16px;
+      background: var(--bg);
+      color: var(--ink);
+      font-family: "Noto Sans TC", "PingFang HK", "Microsoft JhengHei", sans-serif;
       line-height: 1.5;
-    }
-    h1 { font-size: 1.4rem; margin: 0 0 8px; }
-    .subtitle { color: #666; font-size: 0.95rem; margin-bottom: 20px; }
-    .card {
-      background: #fff;
-      border-radius: 12px;
-      padding: 16px;
-      margin-bottom: 16px;
-      box-shadow: 0 1px 3px rgba(0,0,0,0.08);
-    }
-    .row { display: flex; gap: 8px; flex-wrap: wrap; margin-bottom: 12px; }
-    input[type="text"], input[type="search"] {
-      flex: 1;
-      min-width: 140px;
-      padding: 12px 14px;
       font-size: 16px;
-      border: 1px solid #d2d2d7;
-      border-radius: 10px;
-      outline: none;
     }
-    input:focus { border-color: #007aff; }
-    button {
-      padding: 12px 16px;
-      font-size: 16px;
-      border: none;
-      border-radius: 10px;
-      background: #007aff;
-      color: #fff;
-      cursor: pointer;
+    main { max-width: 720px; margin: 0 auto; padding: 24px 16px 48px; }
+    h1 { font-size: 1.8rem; margin: 4px 0 0; }
+    .eyebrow { color: var(--primary); font-weight: 700; margin: 0; }
+    .lead { color: var(--muted); margin: 8px 0 20px; }
+    nav { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 8px; background: var(--surface); padding: 4px; border-radius: 16px; margin-bottom: 16px; }
+    button, .file-btn {
       min-height: 48px;
-      white-space: nowrap;
+      border: 0;
+      border-radius: 12px;
+      font: inherit;
+      font-weight: 600;
+      cursor: pointer;
+      background: var(--surface);
+      color: var(--ink);
     }
-    button:active { opacity: 0.8; }
-    button.secondary { background: #e5e5ea; color: #1d1d1f; }
-    button.danger { background: #ff3b30; }
-    button:disabled { opacity: 0.5; cursor: not-allowed; }
-    #count { font-weight: 600; margin-bottom: 12px; }
-    .contact-item {
-      border: 1px solid #e5e5ea;
-      border-radius: 10px;
-      padding: 14px;
-      margin-bottom: 10px;
-      background: #fafafa;
+    button.active { background: var(--primary); color: var(--primary-fg); }
+    .primary { background: var(--primary); color: var(--primary-fg); width: 100%; font-size: 1.05rem; }
+    .stack { display: grid; gap: 10px; }
+    .file-btn { display: flex; align-items: center; justify-content: center; width: 100%; font-size: 1.05rem; }
+    .file-btn input { display: none; }
+    .card { background: var(--surface); border-radius: 16px; padding: 16px; }
+    .notice { background: var(--soft); color: var(--primary); border-radius: 12px; padding: 12px 16px; }
+    .warn { background: var(--warn-bg); color: var(--warn); border-radius: 12px; padding: 12px 16px; }
+    .row { display: flex; gap: 8px; flex-wrap: wrap; }
+    .grow { flex: 1; }
+    label { display: grid; gap: 4px; font-size: 0.9rem; font-weight: 600; color: var(--muted); }
+    input, textarea {
+      width: 100%;
+      min-height: 48px;
+      border: 1px solid var(--line);
+      background: var(--bg);
+      border-radius: 12px;
+      padding: 10px 12px;
+      font: inherit;
+      color: var(--ink);
     }
-    .contact-item strong { font-size: 1.05rem; }
-    .meta { color: #666; font-size: 0.9rem; margin-top: 4px; }
-    .actions { margin-top: 10px; display: flex; gap: 8px; }
-    .actions button { padding: 8px 12px; font-size: 14px; min-height: 40px; }
-    .empty { text-align: center; color: #888; padding: 30px 10px; }
-    .toast {
-      position: fixed; bottom: 24px; left: 50%; transform: translateX(-50%);
-      background: #1d1d1f; color: #fff; padding: 12px 20px; border-radius: 10px;
-      font-size: 15px; opacity: 0; transition: opacity 0.3s; pointer-events: none; z-index: 100;
-    }
-    .toast.show { opacity: 1; }
+    textarea { min-height: 72px; }
+    .thumb { width: 80px; height: 96px; object-fit: cover; border-radius: 12px; background: var(--soft); }
+    .badge { display: inline-block; background: var(--soft); color: var(--primary); border-radius: 999px; padding: 4px 12px; font-size: 0.9rem; font-weight: 700; }
+    .bar { height: 8px; background: var(--line); border-radius: 999px; overflow: hidden; }
+    .bar > div { height: 100%; background: var(--primary); width: 0; }
+    .muted { color: var(--muted); font-size: 0.9rem; }
+    .danger { color: var(--danger); }
+    .search { display: flex; align-items: center; gap: 8px; background: var(--surface); border-radius: 12px; padding: 0 12px; }
+    .search input { border: 0; background: transparent; }
+    video { width: 100%; aspect-ratio: 3/4; object-fit: cover; background: #111; border-radius: 12px 12px 0 0; }
+    .cam { overflow: hidden; border-radius: 16px; background: var(--surface); }
+    .empty { text-align: center; color: var(--muted); padding: 28px 12px; }
   </style>
 </head>
 <body>
+<main>
+  <p class="eyebrow">名片掃</p>
+  <h1>掃描紙本名片</h1>
+  <p class="lead">用手機拍照，檢查姓名與聯絡方式，再匯出到 Google 通訊錄。照片只在這部裝置處理，不會上傳。</p>
+  <nav>
+    <button id="tab-scan" class="active" type="button">掃描</button>
+    <button id="tab-review" type="button">審核</button>
+    <button id="tab-saved" type="button">已存</button>
+  </nav>
+  <p id="notice" class="notice" hidden></p>
 
-  <h1>名片儲存模組</h1>
-  <p class="subtitle">資料只存在你的裝置瀏覽器中（IndexedDB），不會上傳。</p>
+  <section id="view-scan" class="stack">
+    <label class="file-btn primary">拍照
+      <input id="take" type="file" accept="image/*" capture="environment" multiple>
+    </label>
+    <label class="file-btn">從相簿選擇
+      <input id="gallery" type="file" accept="image/*" multiple>
+    </label>
+    <button id="live" type="button">即時相機</button>
+    <p id="cam-error" class="warn" hidden></p>
+    <div id="cam" class="cam" hidden>
+      <video id="video" playsinline muted autoplay></video>
+      <div class="row" style="padding:12px">
+        <button id="capture" class="primary grow" type="button">擷取</button>
+        <button id="close-cam" type="button">關閉相機</button>
+      </div>
+    </div>
+    <button id="sample" type="button">不用拍照，試用範例名片</button>
+    <p class="muted">一次最多 10 張。中英文名片都會辨識，結果可以先改再存。第一次辨識會下載文字庫。</p>
+  </section>
 
-  <div class="card">
+  <section id="progress-box" class="card" hidden>
+    <p id="progress-text" style="font-weight:700;margin:0 0 8px"></p>
+    <div class="bar"><div id="progress-bar"></div></div>
+  </section>
+
+  <section id="view-review" class="stack" hidden>
+    <p id="review-empty" class="card empty">還沒有待檢查的名片。先去掃描，或試用範例。</p>
+    <div id="review-actions" class="row" hidden>
+      <button id="save-all" class="primary grow" type="button">全部儲存</button>
+      <button id="clear-batch" class="danger" type="button">清除這批</button>
+    </div>
+    <div id="review-list" class="stack"></div>
+  </section>
+
+  <section id="view-saved" class="stack" hidden>
+    <div class="search"><input id="query" placeholder="搜尋姓名、公司、電話、Email"></div>
     <div class="row">
-      <input type="search" id="searchInput" placeholder="搜尋姓名、公司、電話、Email...">
-      <button id="searchBtn" class="secondary">搜尋</button>
+      <button id="csv" class="primary" type="button" style="width:auto;padding:0 16px">下載 Google CSV</button>
+      <button id="add-sample" type="button">加入範例</button>
+      <button id="clear-all" class="danger" type="button">清除全部</button>
     </div>
-    <div class="row">
-      <button id="addSampleBtn">加入範例資料</button>
-      <button id="exportBtn" class="secondary">匯出 CSV</button>
-      <button id="clearAllBtn" class="danger">清除全部</button>
-    </div>
-    <div id="count">已儲存：0 張</div>
-  </div>
-
-  <div class="card">
-    <div id="contactList">
-      <div class="empty">目前沒有儲存的名片</div>
-    </div>
-  </div>
-
-  <div id="toast" class="toast"></div>
-
+    <p id="count" class="muted"></p>
+    <div id="saved-list" class="stack"></div>
+    <aside class="card">
+      <strong>匯入 Google 通訊錄</strong>
+      <p class="muted">開啟 contacts.google.com → 匯入 → 選擇剛下載的 CSV → 匯入。單張則開啟 .vcf，再選擇加入通訊錄。每次匯入上限約 3,000 筆，每個帳戶合計約 25,000 筆。</p>
+    </aside>
+  </section>
+</main>
+<script src="https://cdn.jsdelivr.net/npm/tesseract.js@5.1.1/dist/tesseract.min.js"></script>
 <script>
-/**
- * ========================================
- *  Business Card Storage Module
- *  使用 IndexedDB，可獨立運行
- * ========================================
- */
+const DB_NAME = "NameCardVault";
+const STORE = "cards";
+const SAMPLE = {
+  fullName: "陳大文", company: "範例科技有限公司", title: "業務經理",
+  phone: "2123 4567", mobile: "9123 4567", email: "taiman@example.com.hk",
+  website: "www.example.com.hk", address: "香港九龍觀塘道 123 號",
+  notes: "展覽會認識", language: "中英"
+};
+const FIELDS = [
+  ["fullName", "姓名"], ["company", "公司"], ["title", "職稱"],
+  ["phone", "電話"], ["mobile", "手機"], ["email", "Email"],
+  ["website", "網站"], ["address", "地址"], ["notes", "備註"]
+];
+let tab = "scan";
+let review = [];
+let saved = [];
+let workerPromise = null;
+let stream = null;
 
-const DB_NAME = 'BusinessCardDB';
-const DB_VERSION = 1;
-const STORE_NAME = 'contacts';
+const $ = (id) => document.getElementById(id);
 
-// ---------- 資料庫開啟 ----------
-function openDB() {
+function openDb() {
   return new Promise((resolve, reject) => {
-    const request = indexedDB.open(DB_NAME, DB_VERSION);
-
-    request.onupgradeneeded = (event) => {
-      const db = event.target.result;
-      if (!db.objectStoreNames.contains(STORE_NAME)) {
-        const store = db.createObjectStore(STORE_NAME, { keyPath: 'id', autoIncrement: true });
-        store.createIndex('email', 'email', { unique: false });
-        store.createIndex('fullName', 'fullName', { unique: false });
-        store.createIndex('company', 'company', { unique: false });
+    const req = indexedDB.open(DB_NAME, 1);
+    req.onupgradeneeded = () => {
+      if (!req.result.objectStoreNames.contains(STORE)) {
+        req.result.createObjectStore(STORE, { keyPath: "id", autoIncrement: true });
       }
     };
-
+    req.onsuccess = () => resolve(req.result);
+    req.onerror = () => reject(req.error);
+  });
+}
+function idb(mode, work) {
+  return openDb().then((db) => new Promise((resolve, reject) => {
+    const tx = db.transaction(STORE, mode);
+    const request = work(tx.objectStore(STORE));
     request.onsuccess = () => resolve(request.result);
     request.onerror = () => reject(request.error);
-  });
+  }));
 }
+const listCards = () => idb("readonly", (s) => s.getAll());
+const addCard = (fields) => idb("readwrite", (s) => s.add({ ...fields, createdAt: new Date().toISOString() }));
+const deleteCard = (id) => idb("readwrite", (s) => s.delete(id));
+const clearCards = () => idb("readwrite", (s) => s.clear());
 
-// ---------- 新增一筆名片 ----------
-async function addContact(contact) {
-  const db = await openDB();
-  return new Promise((resolve, reject) => {
-    const tx = db.transaction(STORE_NAME, 'readwrite');
-    const store = tx.objectStore(STORE_NAME);
-
-    const data = {
-      fullName: contact.fullName || '',
-      company: contact.company || '',
-      title: contact.title || '',
-      phone: contact.phone || '',
-      mobile: contact.mobile || '',
-      email: contact.email || '',
-      website: contact.website || '',
-      address: contact.address || '',
-      notes: contact.notes || '',
-      language: contact.language || '',
-      createdAt: contact.createdAt || new Date().toISOString()
-    };
-
-    const request = store.add(data);
-    request.onsuccess = () => resolve(request.result); // 回傳新 id
-    request.onerror = () => reject(request.error);
-  });
+function digits(v) { return v.replace(/\D/g, ""); }
+function isPhoneLine(line) {
+  const count = digits(line).length;
+  if (count < 7 || count > 16) return false;
+  const leftover = line.replace(/[\d\s+\-().／/:：]/g, "").replace(/電話|手機|手提|Tel|Mobile|Phone|WhatsApp|Fax|傳真|M|T/gi, "");
+  return leftover.trim().length <= 8;
 }
-
-// ---------- 一次新增多筆 ----------
-async function addContacts(contacts) {
-  const results = [];
-  for (const c of contacts) {
-    const id = await addContact(c);
-    results.push(id);
+function looksMobile(line) {
+  if (/手機|手提|mobile|cell|whatsapp|^m[:：]/i.test(line)) return true;
+  const local = digits(line).replace(/^852/, "");
+  return local.length === 8 && /^[4-9]/.test(local);
+}
+function languageOf(text) {
+  const hasZh = /[\u4e00-\u9fff]/.test(text);
+  const hasEn = /[A-Za-z]{2,}/.test(text);
+  if (hasZh && hasEn) return "中英";
+  if (hasZh) return "中文";
+  return "EN";
+}
+function parseCardText(raw) {
+  const EMAIL_RE = /[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,}/gi;
+  const WEB_RE = /(https?:\/\/[^\s]+|www\.[^\s]+|\b[\w.-]+\.(?:com\.hk|com|hk|org|net|io)\b)/i;
+  const COMPANY_RE = /有限公司|股份有限|公司|集團|Group|Limited|Ltd\.?|\bCo\b\.?|\bInc\b\.?|Corporation/i;
+  const TITLE_RE = /經理|總監|主任|董事|創辦|創始|顧問|主席|社長|主管|Director|Manager|CEO|Founder|President|Officer|Consultant|Engineer|Designer|Partner|Head\b/i;
+  const ADDRESS_RE = /香港|Hong Kong|Kowloon|九龍|新界|中環|銅鑼灣|Road|Street|Floor|Room|\bRm\b|室|樓|大廈|道\d|街\d|號|區|座|Centre|Center|Plaza|Tower/i;
+  const lines = raw.split(/\r?\n/).map((l) => l.replace(/\s+/g, " ").trim()).filter(Boolean);
+  const emails = [], websites = [], phones = [], mobiles = [], companies = [], titles = [], addresses = [], leftovers = [];
+  for (const line of lines) {
+    const emailHits = line.match(EMAIL_RE);
+    if (emailHits) {
+      emails.push(...emailHits);
+      const rest = line.replace(EMAIL_RE, "").trim();
+      if (rest && !isPhoneLine(rest)) leftovers.push(rest);
+      continue;
+    }
+    if (isPhoneLine(line)) {
+      const compact = line.replace(/^(電話|手機|手提|Tel|Mobile|Phone|WhatsApp|Fax|傳真)[:：\s]*/i, "").trim();
+      (looksMobile(line) ? mobiles : phones).push(compact);
+      continue;
+    }
+    if (WEB_RE.test(line) && line.length < 80) { websites.push((line.match(WEB_RE) || [line])[1] || line); continue; }
+    if (COMPANY_RE.test(line)) { companies.push(line); continue; }
+    if (TITLE_RE.test(line) && line.length < 48) { titles.push(line); continue; }
+    if (ADDRESS_RE.test(line)) { addresses.push(line); continue; }
+    leftovers.push(line);
   }
-  return results;
+  const name = leftovers.filter((l) => l.length >= 2 && l.length <= 40 && digits(l).length < 4).sort((a, b) => a.length - b.length)[0] || "";
+  return {
+    fullName: name, company: companies[0] || "", title: titles[0] || "",
+    phone: phones[0] || "", mobile: mobiles[0] || phones[1] || "",
+    email: emails[0] || "", website: websites[0] || "",
+    address: addresses.join("，"), notes: leftovers.filter((l) => l !== name).join("\n"),
+    language: languageOf(raw)
+  };
 }
 
-// ---------- 取得全部名片 ----------
-async function getAllContacts() {
-  const db = await openDB();
-  return new Promise((resolve, reject) => {
-    const tx = db.transaction(STORE_NAME, 'readonly');
-    const store = tx.objectStore(STORE_NAME);
-    const request = store.getAll();
-    request.onsuccess = () => resolve(request.result || []);
-    request.onerror = () => reject(request.error);
+function notice(text) {
+  const el = $("notice");
+  el.hidden = !text;
+  el.textContent = text || "";
+}
+function setTab(next) {
+  tab = next;
+  ["scan", "review", "saved"].forEach((name) => {
+    $("view-" + name).hidden = name !== next;
+    $("tab-" + name).classList.toggle("active", name === next);
+  });
+  $("tab-review").textContent = "審核" + (review.length ? " " + review.length : "");
+  $("tab-saved").textContent = "已存" + (saved.length ? " " + saved.length : "");
+  if (next !== "scan") stopCamera();
+}
+function fileToUrl(blob) {
+  return new Promise((resolve) => {
+    const reader = new FileReader();
+    reader.onload = () => resolve(String(reader.result || ""));
+    reader.readAsDataURL(blob);
   });
 }
-
-// ---------- 依 ID 刪除 ----------
-async function deleteContact(id) {
-  const db = await openDB();
-  return new Promise((resolve, reject) => {
-    const tx = db.transaction(STORE_NAME, 'readwrite');
-    const store = tx.objectStore(STORE_NAME);
-    const request = store.delete(Number(id));
-    request.onsuccess = () => resolve();
-    request.onerror = () => reject(request.error);
-  });
-}
-
-// ---------- 清除全部 ----------
-async function clearAllContacts() {
-  const db = await openDB();
-  return new Promise((resolve, reject) => {
-    const tx = db.transaction(STORE_NAME, 'readwrite');
-    const store = tx.objectStore(STORE_NAME);
-    const request = store.clear();
-    request.onsuccess = () => resolve();
-    request.onerror = () => reject(request.error);
-  });
-}
-
-// ---------- 簡單搜尋 ----------
-async function searchContacts(keyword) {
-  const all = await getAllContacts();
-  if (!keyword || !keyword.trim()) return all;
-
-  const q = keyword.trim().toLowerCase();
-  return all.filter(c => {
-    return (
-      (c.fullName || '').toLowerCase().includes(q) ||
-      (c.company || '').toLowerCase().includes(q) ||
-      (c.phone || '').toLowerCase().includes(q) ||
-      (c.mobile || '').toLowerCase().includes(q) ||
-      (c.email || '').toLowerCase().includes(q) ||
-      (c.title || '').toLowerCase().includes(q)
-    );
-  });
-}
-
-// ---------- 匯出 Google Contacts 格式 CSV ----------
-function exportToGoogleCSV(contacts) {
-  const headers = [
-    'First Name', 'Last Name', 'Organization', 'Title',
-    'Phone 1 - Value', 'Phone 2 - Value', 'E-mail 1 - Value',
-    'Website 1 - Value', 'Address 1 - Formatted', 'Notes'
-  ];
-
-  const rows = contacts.map(c => {
-    // 簡單把全名拆成 First / Last（中文姓名通常整段放 First Name）
-    let firstName = c.fullName || '';
-    let lastName = '';
-    if (firstName.includes(' ')) {
-      const parts = firstName.trim().split(/\s+/);
-      firstName = parts[0];
-      lastName = parts.slice(1).join(' ');
-    }
-
-    return [
-      firstName,
-      lastName,
-      c.company || '',
-      c.title || '',
-      c.phone || '',
-      c.mobile || '',
-      c.email || '',
-      c.website || '',
-      c.address || '',
-      c.notes || ''
-    ].map(v => `"${String(v).replace(/"/g, '""')}"`).join(',');
-  });
-
-  const csvContent = '\uFEFF' + headers.join(',') + '\n' + rows.join('\n'); // 加 BOM 讓 Excel 正確顯示中文
-  const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
-  const url = URL.createObjectURL(blob);
-  const a = document.createElement('a');
-  a.href = url;
-  a.download = `business_cards_${new Date().toISOString().slice(0,10)}.csv`;
-  a.click();
-  URL.revokeObjectURL(url);
-}
-
-// ========================================
-//  以下是示範用的畫面邏輯（整合時可參考）
-// ========================================
-
-function showToast(msg) {
-  const el = document.getElementById('toast');
-  el.textContent = msg;
-  el.classList.add('show');
-  setTimeout(() => el.classList.remove('show'), 2200);
-}
-
-async function refreshList(keyword = '') {
-  const listEl = document.getElementById('contactList');
-  const countEl = document.getElementById('count');
-
-  try {
-    const contacts = keyword ? await searchContacts(keyword) : await getAllContacts();
-    countEl.textContent = `已儲存：${contacts.length} 張`;
-
-    if (contacts.length === 0) {
-      listEl.innerHTML = '<div class="empty">目前沒有儲存的名片</div>';
-      return;
-    }
-
-    // 依建立時間新到舊排序
-    contacts.sort((a, b) => (b.createdAt || '').localeCompare(a.createdAt || ''));
-
-    listEl.innerHTML = contacts.map(c => `
-      <div class="contact-item">
-        <strong>${escapeHtml(c.fullName || '(無姓名)')}</strong>
-        <div class="meta">
-          ${c.company ? escapeHtml(c.company) + '<br>' : ''}
-          ${c.title ? escapeHtml(c.title) + '<br>' : ''}
-          ${c.phone ? '電話：' + escapeHtml(c.phone) + '<br>' : ''}
-          ${c.mobile ? '手機：' + escapeHtml(c.mobile) + '<br>' : ''}
-          ${c.email ? 'Email：' + escapeHtml(c.email) : ''}
-        </div>
-        <div class="actions">
-          <button class="danger" onclick="handleDelete(${c.id})">刪除</button>
-        </div>
-      </div>
-    `).join('');
-  } catch (err) {
-    console.error(err);
-    listEl.innerHTML = '<div class="empty">讀取資料時發生錯誤</div>';
+async function getWorker() {
+  if (!workerPromise) {
+    workerPromise = Tesseract.createWorker("chi_tra+eng", 1, {
+      workerPath: "https://cdn.jsdelivr.net/npm/tesseract.js@5.1.1/dist/worker.min.js",
+      corePath: "https://cdn.jsdelivr.net/npm/tesseract.js-core@5.1.1/tesseract-core-simd-lstm.wasm.js",
+      langPath: "https://tessdata.projectnaptha.com/4.0.0"
+    });
   }
+  return workerPromise;
 }
-
-function escapeHtml(str) {
-  return String(str)
-    .replace(/&/g, '&amp;')
-    .replace(/</g, '&lt;')
-    .replace(/>/g, '&gt;')
-    .replace(/"/g, '&quot;');
-}
-
-async function handleDelete(id) {
-  if (!confirm('確定要刪除這張名片嗎？')) return;
-  await deleteContact(id);
-  showToast('已刪除');
-  refreshList(document.getElementById('searchInput').value);
-}
-
-async function handleClearAll() {
-  if (!confirm('確定要清除全部儲存的名片嗎？此操作無法復原。')) return;
-  await clearAllContacts();
-  showToast('已全部清除');
-  refreshList();
-}
-
-async function handleAddSample() {
-  const samples = [
-    {
-      fullName: '陳大文',
-      company: '範例科技有限公司',
-      title: '業務經理',
-      phone: '2123 4567',
-      mobile: '9123 4567',
-      email: 'taiman@example.com.hk',
-      website: 'www.example.com.hk',
-      address: '香港九龍觀塘道 123 號',
-      notes: '展覽會認識',
-      language: '中英'
-    },
-    {
-      fullName: 'Emily Wong',
-      company: 'Example Group Limited',
-      title: 'Marketing Director',
-      phone: '+852 2345 6789',
-      mobile: '+852 9876 5432',
-      email: 'emily.wong@example.com',
-      website: 'https://www.example.com',
-      address: 'Central, Hong Kong',
-      notes: '',
-      language: 'EN'
+async function processBlobs(blobs) {
+  const batch = blobs.slice(0, 10);
+  setTab("review");
+  notice("");
+  const box = $("progress-box");
+  box.hidden = false;
+  const made = [];
+  for (let i = 0; i < batch.length; i++) {
+    $("progress-text").textContent = "正在辨識第 " + (i + 1) + " / " + batch.length + " 張…";
+    $("progress-bar").style.width = Math.round((i / batch.length) * 100) + "%";
+    const thumb = await fileToUrl(batch[i]);
+    try {
+      const worker = await getWorker();
+      const result = await worker.recognize(batch[i]);
+      const text = (result.data && result.data.text) || "";
+      made.push({ ...parseCardText(text), key: Date.now() + "-" + i, rawText: text, thumb, warning: text.trim() ? "" : "沒有辨識到文字，請重拍一張較清楚的照片。" });
+    } catch (err) {
+      made.push({ fullName:"", company:"", title:"", phone:"", mobile:"", email:"", website:"", address:"", notes:"", language:"EN", key: Date.now() + "-" + i, thumb, warning: "辨識失敗。請確認可以連上網路下載文字庫，或改用較清楚的照片。" });
     }
-  ];
-
-  await addContacts(samples);
-  showToast('已加入 2 筆範例資料');
-  refreshList();
+  }
+  $("progress-bar").style.width = "100%";
+  box.hidden = true;
+  review = made.concat(review);
+  renderReview();
+  setTab("review");
 }
-
-async function handleExport() {
-  const contacts = await getAllContacts();
-  if (contacts.length === 0) {
-    showToast('目前沒有資料可匯出');
+function renderReview() {
+  const empty = review.length === 0;
+  $("review-empty").hidden = !empty;
+  $("review-actions").hidden = empty;
+  const list = $("review-list");
+  list.innerHTML = "";
+  review.forEach((card) => {
+    const article = document.createElement("article");
+    article.className = "card";
+    const top = document.createElement("div");
+    top.className = "row";
+    if (card.thumb) {
+      const img = document.createElement("img");
+      img.className = "thumb";
+      img.alt = "";
+      img.src = card.thumb;
+      top.appendChild(img);
+    }
+    const badge = document.createElement("span");
+    badge.className = "badge";
+    badge.textContent = card.language;
+    top.appendChild(badge);
+    const remove = document.createElement("button");
+    remove.type = "button";
+    remove.textContent = "移除";
+    remove.onclick = () => { review = review.filter((item) => item.key !== card.key); renderReview(); setTab("review"); };
+    top.appendChild(remove);
+    article.appendChild(top);
+    if (card.warning) {
+      const warn = document.createElement("p");
+      warn.className = "warn";
+      warn.textContent = card.warning;
+      article.appendChild(warn);
+    }
+    FIELDS.forEach(([key, label]) => {
+      const field = document.createElement("label");
+      field.textContent = label;
+      const input = key === "notes" || key === "address" ? document.createElement("textarea") : document.createElement("input");
+      input.value = card[key] || "";
+      input.oninput = () => { card[key] = input.value; };
+      field.appendChild(input);
+      article.appendChild(field);
+    });
+    const save = document.createElement("button");
+    save.className = "primary";
+    save.type = "button";
+    save.textContent = "儲存此張";
+    save.onclick = () => saveOne(card);
+    article.appendChild(save);
+    list.appendChild(article);
+  });
+}
+async function saveOne(card) {
+  if (card.email) {
+    const hit = saved.find((item) => item.email.trim().toLowerCase() === card.email.trim().toLowerCase());
+    if (hit && !confirm("這個 Email 已存在（" + (hit.fullName || "未命名") + "）。仍要儲存嗎？")) return;
+  }
+  await addCard(card);
+  review = review.filter((item) => item.key !== card.key);
+  saved = await listCards();
+  notice("已儲存 1 張。");
+  renderReview();
+  renderSaved();
+  setTab("review");
+}
+async function saveAll() {
+  let dup = 0;
+  for (const card of review) {
+    if (card.email && saved.some((item) => item.email.trim().toLowerCase() === card.email.trim().toLowerCase())) dup += 1;
+    await addCard(card);
+    saved = await listCards();
+  }
+  review = [];
+  notice(dup ? "已全部儲存。其中 " + dup + " 張 Email 與舊資料重複，仍已保留。" : "已全部儲存。");
+  renderReview();
+  renderSaved();
+  setTab("saved");
+}
+function renderSaved() {
+  const q = $("query").value.trim().toLowerCase();
+  const rows = saved.filter((card) => (card.fullName + " " + card.company + " " + card.phone + " " + card.mobile + " " + card.email).toLowerCase().includes(q));
+  $("count").textContent = "已儲存 " + saved.length + " 張。沒有上限。資料留在這部裝置的瀏覽器裡。";
+  const list = $("saved-list");
+  list.innerHTML = "";
+  if (!rows.length) {
+    const empty = document.createElement("p");
+    empty.className = "card empty";
+    empty.textContent = "沒有符合的名片。";
+    list.appendChild(empty);
     return;
   }
-  exportToGoogleCSV(contacts);
-  showToast('CSV 已下載');
+  rows.forEach((card) => {
+    const article = document.createElement("article");
+    article.className = "card";
+    const title = document.createElement("h2");
+    title.style.margin = "0";
+    title.style.fontSize = "1.1rem";
+    title.textContent = card.fullName || "（無姓名）";
+    article.appendChild(title);
+    const meta = document.createElement("p");
+    meta.className = "muted";
+    meta.textContent = [card.company, card.title].filter(Boolean).join(" · ");
+    article.appendChild(meta);
+    const phone = document.createElement("p");
+    phone.textContent = card.phone || card.mobile || "";
+    article.appendChild(phone);
+    const email = document.createElement("p");
+    email.textContent = card.email || "";
+    article.appendChild(email);
+    const badge = document.createElement("span");
+    badge.className = "badge";
+    badge.textContent = card.language;
+    article.appendChild(badge);
+    const actions = document.createElement("div");
+    actions.className = "row";
+    const vcf = document.createElement("button");
+    vcf.type = "button";
+    vcf.textContent = "下載 vCard";
+    vcf.onclick = () => downloadVcard(card);
+    const del = document.createElement("button");
+    del.type = "button";
+    del.className = "danger";
+    del.textContent = "刪除";
+    del.onclick = async () => {
+      if (!confirm("刪除這張名片？")) return;
+      await deleteCard(card.id);
+      saved = await listCards();
+      renderSaved();
+      setTab("saved");
+    };
+    actions.append(vcf, del);
+    article.appendChild(actions);
+    list.appendChild(article);
+  });
+}
+function splitName(fullName) {
+  const name = (fullName || "").trim();
+  if (!name) return ["", ""];
+  if (/[\u4e00-\u9fff]/.test(name) && !name.includes(" ")) return [name, ""];
+  const parts = name.split(/\s+/);
+  return parts.length === 1 ? [parts[0], ""] : [parts[0], parts.slice(1).join(" ")];
+}
+function csvCell(value) { return '"' + String(value || "").replace(/"/g, '""') + '"'; }
+function triggerDownload(blob, filename) {
+  const url = URL.createObjectURL(blob);
+  const link = document.createElement("a");
+  link.href = url;
+  link.download = filename;
+  link.click();
+  URL.revokeObjectURL(url);
+}
+function downloadGoogleCsv(cards) {
+  const headers = ["First Name","Last Name","Organization","Title","Phone","Mobile","Email","Website","Address","Notes"];
+  const rows = cards.map((card) => {
+    const [first, last] = splitName(card.fullName);
+    return [first, last, card.company, card.title, card.phone, card.mobile, card.email, card.website, card.address, card.notes].map(csvCell).join(",");
+  });
+  triggerDownload(new Blob(["\uFEFF" + headers.join(",") + "\n" + rows.join("\n")], { type: "text/csv;charset=utf-8" }), "name-cards.csv");
+}
+function downloadVcard(card) {
+  const [first, last] = splitName(card.fullName);
+  const clean = (v) => String(v || "").replace(/[\r\n]+/g, " ");
+  const lines = ["BEGIN:VCARD","VERSION:3.0","N:" + clean(last) + ";" + clean(first) + ";;;","FN:" + clean(card.fullName)];
+  if (card.company) lines.push("ORG:" + clean(card.company));
+  if (card.title) lines.push("TITLE:" + clean(card.title));
+  if (card.phone) lines.push("TEL;TYPE=WORK:" + clean(card.phone));
+  if (card.mobile) lines.push("TEL;TYPE=CELL:" + clean(card.mobile));
+  if (card.email) lines.push("EMAIL:" + clean(card.email));
+  if (card.website) lines.push("URL:" + clean(card.website));
+  if (card.address) lines.push("ADR;TYPE=WORK:;;" + clean(card.address) + ";;;;");
+  if (card.notes) lines.push("NOTE:" + clean(card.notes));
+  lines.push("END:VCARD");
+  const filename = (card.fullName || "contact").replace(/[^\w\u4e00-\u9fff.-]+/g, "_") + ".vcf";
+  triggerDownload(new Blob([lines.join("\r\n")], { type: "text/vcard;charset=utf-8" }), filename);
+}
+function addSample() {
+  review = [{ ...SAMPLE, key: "sample-" + Date.now(), thumb: "", warning: "" }].concat(review);
+  renderReview();
+  setTab("review");
+}
+function stopCamera() {
+  if (stream) stream.getTracks().forEach((track) => track.stop());
+  stream = null;
+  $("cam").hidden = true;
+}
+async function openCamera() {
+  $("cam-error").hidden = true;
+  if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
+    $("cam-error").hidden = false;
+    $("cam-error").textContent = "這個瀏覽器不支援即時相機。請用「拍照」，它會開啟相機 App，一定可以用。";
+    return;
+  }
+  try {
+    stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: "environment" }, audio: false });
+    $("video").srcObject = stream;
+    $("cam").hidden = false;
+  } catch (err) {
+    $("cam-error").hidden = false;
+    $("cam-error").textContent = "即時相機被擋住了。請用「拍照」，它會開啟你的相機 App，一定可以用。若要允許即時相機：設定 > Safari > 相機 > 允許。";
+  }
+}
+async function captureFrame() {
+  const video = $("video");
+  if (!video.videoWidth) return;
+  const canvas = document.createElement("canvas");
+  canvas.width = video.videoWidth;
+  canvas.height = video.videoHeight;
+  canvas.getContext("2d").drawImage(video, 0, 0);
+  const blob = await new Promise((resolve) => canvas.toBlob(resolve, "image/jpeg", 0.92));
+  stopCamera();
+  if (blob) await processBlobs([blob]);
 }
 
-// 事件綁定
-document.getElementById('addSampleBtn').addEventListener('click', handleAddSample);
-document.getElementById('clearAllBtn').addEventListener('click', handleClearAll);
-document.getElementById('exportBtn').addEventListener('click', handleExport);
-document.getElementById('searchBtn').addEventListener('click', () => {
-  refreshList(document.getElementById('searchInput').value);
-});
-document.getElementById('searchInput').addEventListener('keyup', (e) => {
-  if (e.key === 'Enter') refreshList(e.target.value);
-});
-
-// 頁面載入時顯示清單
-refreshList();
+$("tab-scan").onclick = () => setTab("scan");
+$("tab-review").onclick = () => setTab("review");
+$("tab-saved").onclick = () => { renderSaved(); setTab("saved"); };
+$("take").onchange = (event) => { processBlobs(Array.from(event.target.files || [])); event.target.value = ""; };
+$("gallery").onchange = (event) => { processBlobs(Array.from(event.target.files || [])); event.target.value = ""; };
+$("live").onclick = openCamera;
+$("capture").onclick = captureFrame;
+$("close-cam").onclick = stopCamera;
+$("sample").onclick = addSample;
+$("add-sample").onclick = addSample;
+$("save-all").onclick = saveAll;
+$("clear-batch").onclick = () => { review = []; renderReview(); };
+$("csv").onclick = () => saved.length && downloadGoogleCsv(saved);
+$("clear-all").onclick = async () => {
+  if (!confirm("清除全部已儲存的名片？此動作無法復原，建議先匯出 CSV。")) return;
+  await clearCards();
+  saved = [];
+  renderSaved();
+};
+$("query").oninput = renderSaved;
+listCards().then((rows) => { saved = rows || []; setTab("scan"); }).catch(() => notice("無法讀取已儲存的名片。"));
 </script>
 </body>
 </html>
