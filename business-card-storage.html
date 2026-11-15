@@ -1,0 +1,393 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0">
+  <title>名片儲存模組示範</title>
+  <style>
+    * { box-sizing: border-box; }
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+      margin: 0;
+      padding: 16px;
+      background: #f5f5f7;
+      color: #1d1d1f;
+      font-size: 16px;
+      line-height: 1.5;
+    }
+    h1 { font-size: 1.4rem; margin: 0 0 8px; }
+    .subtitle { color: #666; font-size: 0.95rem; margin-bottom: 20px; }
+    .card {
+      background: #fff;
+      border-radius: 12px;
+      padding: 16px;
+      margin-bottom: 16px;
+      box-shadow: 0 1px 3px rgba(0,0,0,0.08);
+    }
+    .row { display: flex; gap: 8px; flex-wrap: wrap; margin-bottom: 12px; }
+    input[type="text"], input[type="search"] {
+      flex: 1;
+      min-width: 140px;
+      padding: 12px 14px;
+      font-size: 16px;
+      border: 1px solid #d2d2d7;
+      border-radius: 10px;
+      outline: none;
+    }
+    input:focus { border-color: #007aff; }
+    button {
+      padding: 12px 16px;
+      font-size: 16px;
+      border: none;
+      border-radius: 10px;
+      background: #007aff;
+      color: #fff;
+      cursor: pointer;
+      min-height: 48px;
+      white-space: nowrap;
+    }
+    button:active { opacity: 0.8; }
+    button.secondary { background: #e5e5ea; color: #1d1d1f; }
+    button.danger { background: #ff3b30; }
+    button:disabled { opacity: 0.5; cursor: not-allowed; }
+    #count { font-weight: 600; margin-bottom: 12px; }
+    .contact-item {
+      border: 1px solid #e5e5ea;
+      border-radius: 10px;
+      padding: 14px;
+      margin-bottom: 10px;
+      background: #fafafa;
+    }
+    .contact-item strong { font-size: 1.05rem; }
+    .meta { color: #666; font-size: 0.9rem; margin-top: 4px; }
+    .actions { margin-top: 10px; display: flex; gap: 8px; }
+    .actions button { padding: 8px 12px; font-size: 14px; min-height: 40px; }
+    .empty { text-align: center; color: #888; padding: 30px 10px; }
+    .toast {
+      position: fixed; bottom: 24px; left: 50%; transform: translateX(-50%);
+      background: #1d1d1f; color: #fff; padding: 12px 20px; border-radius: 10px;
+      font-size: 15px; opacity: 0; transition: opacity 0.3s; pointer-events: none; z-index: 100;
+    }
+    .toast.show { opacity: 1; }
+  </style>
+</head>
+<body>
+
+  <h1>名片儲存模組</h1>
+  <p class="subtitle">資料只存在你的裝置瀏覽器中（IndexedDB），不會上傳。</p>
+
+  <div class="card">
+    <div class="row">
+      <input type="search" id="searchInput" placeholder="搜尋姓名、公司、電話、Email...">
+      <button id="searchBtn" class="secondary">搜尋</button>
+    </div>
+    <div class="row">
+      <button id="addSampleBtn">加入範例資料</button>
+      <button id="exportBtn" class="secondary">匯出 CSV</button>
+      <button id="clearAllBtn" class="danger">清除全部</button>
+    </div>
+    <div id="count">已儲存：0 張</div>
+  </div>
+
+  <div class="card">
+    <div id="contactList">
+      <div class="empty">目前沒有儲存的名片</div>
+    </div>
+  </div>
+
+  <div id="toast" class="toast"></div>
+
+<script>
+/**
+ * ========================================
+ *  Business Card Storage Module
+ *  使用 IndexedDB，可獨立運行
+ * ========================================
+ */
+
+const DB_NAME = 'BusinessCardDB';
+const DB_VERSION = 1;
+const STORE_NAME = 'contacts';
+
+// ---------- 資料庫開啟 ----------
+function openDB() {
+  return new Promise((resolve, reject) => {
+    const request = indexedDB.open(DB_NAME, DB_VERSION);
+
+    request.onupgradeneeded = (event) => {
+      const db = event.target.result;
+      if (!db.objectStoreNames.contains(STORE_NAME)) {
+        const store = db.createObjectStore(STORE_NAME, { keyPath: 'id', autoIncrement: true });
+        store.createIndex('email', 'email', { unique: false });
+        store.createIndex('fullName', 'fullName', { unique: false });
+        store.createIndex('company', 'company', { unique: false });
+      }
+    };
+
+    request.onsuccess = () => resolve(request.result);
+    request.onerror = () => reject(request.error);
+  });
+}
+
+// ---------- 新增一筆名片 ----------
+async function addContact(contact) {
+  const db = await openDB();
+  return new Promise((resolve, reject) => {
+    const tx = db.transaction(STORE_NAME, 'readwrite');
+    const store = tx.objectStore(STORE_NAME);
+
+    const data = {
+      fullName: contact.fullName || '',
+      company: contact.company || '',
+      title: contact.title || '',
+      phone: contact.phone || '',
+      mobile: contact.mobile || '',
+      email: contact.email || '',
+      website: contact.website || '',
+      address: contact.address || '',
+      notes: contact.notes || '',
+      language: contact.language || '',
+      createdAt: contact.createdAt || new Date().toISOString()
+    };
+
+    const request = store.add(data);
+    request.onsuccess = () => resolve(request.result); // 回傳新 id
+    request.onerror = () => reject(request.error);
+  });
+}
+
+// ---------- 一次新增多筆 ----------
+async function addContacts(contacts) {
+  const results = [];
+  for (const c of contacts) {
+    const id = await addContact(c);
+    results.push(id);
+  }
+  return results;
+}
+
+// ---------- 取得全部名片 ----------
+async function getAllContacts() {
+  const db = await openDB();
+  return new Promise((resolve, reject) => {
+    const tx = db.transaction(STORE_NAME, 'readonly');
+    const store = tx.objectStore(STORE_NAME);
+    const request = store.getAll();
+    request.onsuccess = () => resolve(request.result || []);
+    request.onerror = () => reject(request.error);
+  });
+}
+
+// ---------- 依 ID 刪除 ----------
+async function deleteContact(id) {
+  const db = await openDB();
+  return new Promise((resolve, reject) => {
+    const tx = db.transaction(STORE_NAME, 'readwrite');
+    const store = tx.objectStore(STORE_NAME);
+    const request = store.delete(Number(id));
+    request.onsuccess = () => resolve();
+    request.onerror = () => reject(request.error);
+  });
+}
+
+// ---------- 清除全部 ----------
+async function clearAllContacts() {
+  const db = await openDB();
+  return new Promise((resolve, reject) => {
+    const tx = db.transaction(STORE_NAME, 'readwrite');
+    const store = tx.objectStore(STORE_NAME);
+    const request = store.clear();
+    request.onsuccess = () => resolve();
+    request.onerror = () => reject(request.error);
+  });
+}
+
+// ---------- 簡單搜尋 ----------
+async function searchContacts(keyword) {
+  const all = await getAllContacts();
+  if (!keyword || !keyword.trim()) return all;
+
+  const q = keyword.trim().toLowerCase();
+  return all.filter(c => {
+    return (
+      (c.fullName || '').toLowerCase().includes(q) ||
+      (c.company || '').toLowerCase().includes(q) ||
+      (c.phone || '').toLowerCase().includes(q) ||
+      (c.mobile || '').toLowerCase().includes(q) ||
+      (c.email || '').toLowerCase().includes(q) ||
+      (c.title || '').toLowerCase().includes(q)
+    );
+  });
+}
+
+// ---------- 匯出 Google Contacts 格式 CSV ----------
+function exportToGoogleCSV(contacts) {
+  const headers = [
+    'First Name', 'Last Name', 'Organization', 'Title',
+    'Phone 1 - Value', 'Phone 2 - Value', 'E-mail 1 - Value',
+    'Website 1 - Value', 'Address 1 - Formatted', 'Notes'
+  ];
+
+  const rows = contacts.map(c => {
+    // 簡單把全名拆成 First / Last（中文姓名通常整段放 First Name）
+    let firstName = c.fullName || '';
+    let lastName = '';
+    if (firstName.includes(' ')) {
+      const parts = firstName.trim().split(/\s+/);
+      firstName = parts[0];
+      lastName = parts.slice(1).join(' ');
+    }
+
+    return [
+      firstName,
+      lastName,
+      c.company || '',
+      c.title || '',
+      c.phone || '',
+      c.mobile || '',
+      c.email || '',
+      c.website || '',
+      c.address || '',
+      c.notes || ''
+    ].map(v => `"${String(v).replace(/"/g, '""')}"`).join(',');
+  });
+
+  const csvContent = '\uFEFF' + headers.join(',') + '\n' + rows.join('\n'); // 加 BOM 讓 Excel 正確顯示中文
+  const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = `business_cards_${new Date().toISOString().slice(0,10)}.csv`;
+  a.click();
+  URL.revokeObjectURL(url);
+}
+
+// ========================================
+//  以下是示範用的畫面邏輯（整合時可參考）
+// ========================================
+
+function showToast(msg) {
+  const el = document.getElementById('toast');
+  el.textContent = msg;
+  el.classList.add('show');
+  setTimeout(() => el.classList.remove('show'), 2200);
+}
+
+async function refreshList(keyword = '') {
+  const listEl = document.getElementById('contactList');
+  const countEl = document.getElementById('count');
+
+  try {
+    const contacts = keyword ? await searchContacts(keyword) : await getAllContacts();
+    countEl.textContent = `已儲存：${contacts.length} 張`;
+
+    if (contacts.length === 0) {
+      listEl.innerHTML = '<div class="empty">目前沒有儲存的名片</div>';
+      return;
+    }
+
+    // 依建立時間新到舊排序
+    contacts.sort((a, b) => (b.createdAt || '').localeCompare(a.createdAt || ''));
+
+    listEl.innerHTML = contacts.map(c => `
+      <div class="contact-item">
+        <strong>${escapeHtml(c.fullName || '(無姓名)')}</strong>
+        <div class="meta">
+          ${c.company ? escapeHtml(c.company) + '<br>' : ''}
+          ${c.title ? escapeHtml(c.title) + '<br>' : ''}
+          ${c.phone ? '電話：' + escapeHtml(c.phone) + '<br>' : ''}
+          ${c.mobile ? '手機：' + escapeHtml(c.mobile) + '<br>' : ''}
+          ${c.email ? 'Email：' + escapeHtml(c.email) : ''}
+        </div>
+        <div class="actions">
+          <button class="danger" onclick="handleDelete(${c.id})">刪除</button>
+        </div>
+      </div>
+    `).join('');
+  } catch (err) {
+    console.error(err);
+    listEl.innerHTML = '<div class="empty">讀取資料時發生錯誤</div>';
+  }
+}
+
+function escapeHtml(str) {
+  return String(str)
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;');
+}
+
+async function handleDelete(id) {
+  if (!confirm('確定要刪除這張名片嗎？')) return;
+  await deleteContact(id);
+  showToast('已刪除');
+  refreshList(document.getElementById('searchInput').value);
+}
+
+async function handleClearAll() {
+  if (!confirm('確定要清除全部儲存的名片嗎？此操作無法復原。')) return;
+  await clearAllContacts();
+  showToast('已全部清除');
+  refreshList();
+}
+
+async function handleAddSample() {
+  const samples = [
+    {
+      fullName: '陳大文',
+      company: '範例科技有限公司',
+      title: '業務經理',
+      phone: '2123 4567',
+      mobile: '9123 4567',
+      email: 'taiman@example.com.hk',
+      website: 'www.example.com.hk',
+      address: '香港九龍觀塘道 123 號',
+      notes: '展覽會認識',
+      language: '中英'
+    },
+    {
+      fullName: 'Emily Wong',
+      company: 'Example Group Limited',
+      title: 'Marketing Director',
+      phone: '+852 2345 6789',
+      mobile: '+852 9876 5432',
+      email: 'emily.wong@example.com',
+      website: 'https://www.example.com',
+      address: 'Central, Hong Kong',
+      notes: '',
+      language: 'EN'
+    }
+  ];
+
+  await addContacts(samples);
+  showToast('已加入 2 筆範例資料');
+  refreshList();
+}
+
+async function handleExport() {
+  const contacts = await getAllContacts();
+  if (contacts.length === 0) {
+    showToast('目前沒有資料可匯出');
+    return;
+  }
+  exportToGoogleCSV(contacts);
+  showToast('CSV 已下載');
+}
+
+// 事件綁定
+document.getElementById('addSampleBtn').addEventListener('click', handleAddSample);
+document.getElementById('clearAllBtn').addEventListener('click', handleClearAll);
+document.getElementById('exportBtn').addEventListener('click', handleExport);
+document.getElementById('searchBtn').addEventListener('click', () => {
+  refreshList(document.getElementById('searchInput').value);
+});
+document.getElementById('searchInput').addEventListener('keyup', (e) => {
+  if (e.key === 'Enter') refreshList(e.target.value);
+});
+
+// 頁面載入時顯示清單
+refreshList();
+</script>
+</body>
+</html>
